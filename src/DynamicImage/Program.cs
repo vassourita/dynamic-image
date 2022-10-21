@@ -1,34 +1,23 @@
-var builder = WebApplication.CreateBuilder(args);
+using System;
+using System.IO;
+using DynamicImage;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 
-// Add services to the container.
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-var app = builder.Build();
+builder.Services.AddSingleton<ICounterProvider, InMemoryCounterProvider>();
+builder.Services.AddSingleton<DynamicImageGenerator>();
 
-// Configure the HTTP request pipeline.
+WebApplication app = builder.Build();
 
-app.UseHttpsRedirection();
-
-var summaries = new[]
+app.MapGet("/counter/{id:guid}", (Guid id, string? name) =>
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
+    DynamicImageGenerator generator = app.Services.GetRequiredService<DynamicImageGenerator>();
+    Stream stream = generator.GenerateImage(id, name);
+    return Results.File(stream, "image/png");
 });
 
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
